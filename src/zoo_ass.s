@@ -604,8 +604,8 @@ do_timer:		dec del			;respect timer delay
 joker:			lda _joker		;is there a joker running...??!
 			jeq exit		;no, then skip
 
-			dec joker_delay		;respect delay value
-			lda joker_delay
+			dec _joker_delay		;respect delay value
+			lda _joker_delay
 			and #7			;every 8th frame...
 			bne exit
 
@@ -2433,6 +2433,7 @@ _screen_on:		lda #$1b
 .export _pm_x1,_pm_x2,_pm_y1,_pm_y2
 .export _cue,_cue_max,_demo,_pl, _team, _tt
 .export _fld_done
+.export _joker_delay
 
 bck:			.res 6
 _cue:			.res 16
@@ -2469,7 +2470,7 @@ _team:			.byte 0
 _tt:			.byte 0
 
 rotate_delay:		.byte 0
-joker_delay:		.byte 0
+_joker_delay:		.byte 0
 scroll_delay:		.byte 0
 bar_delay:		.byte 0
 d1:			.byte 0

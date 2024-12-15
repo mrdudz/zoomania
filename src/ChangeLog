@@ -1,3 +1,7 @@
+2011 - Final RC2 (groepaz@gmx.net)
+
+    * fixed bug with bonus/joker piece becoming corrupted when pausing the game
+      when it is active. (bug reported by l.a.style)
 
 2011 - Final RC1 (groepaz@gmx.net)
 
@@ -63,7 +67,8 @@
     * reworked all other interrupt handlers, music always runs in a 50Hz timer
       interrupt so it plays at correct speed at all times in NTSC
 
-    -> the game should behave in NTSC exactly as in PAL now
+    -> the game should behave in NTSC exactly as in PAL now (talk about a true
+       ntsc fix...)
 
     other:
 

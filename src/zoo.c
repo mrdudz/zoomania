@@ -347,10 +347,13 @@ void __fastcall__ joker_hit(char pl)
     stop = 0;
 }
 
+extern unsigned char joker_delay;
 
 void main(void)
 {
     char i,joker_runtime,j1,j2;
+    unsigned char tmp_joker;
+    clock_t tmp_jok1;
 
     screen_off();
 
@@ -502,12 +505,24 @@ void main(void)
             }
             if (!isstop()){
                 stop = 1;
+                tmp_joker = joker;
+                if (joker) {
+                    kill_joker();
+                    joker = 0;
+                    tmp_jok1 = clock() - jok1;
+                }
                 memcpy(backup,matrix,64);
                 broesel();
                 pause_screen();
                 memcpy(matrix,backup,64);
                 print_matrix();
                 stop = 0;
+                if (tmp_joker == 1) {
+                    matrix[joker_y][joker_x] = JOKER_SYMB;
+                    joker = 1;
+                    jok1 = clock() - tmp_jok1; /* start time */
+                    joker_delay = 0xff;
+                }
             }
             if (key == CH_F8){
                 stop = 1;
@@ -536,7 +551,8 @@ void main(void)
                 while ((joker_runtime = random() & 7) < 3) {
                     /* wait */
                 }
-                jok1 = clock();
+                jok1 = clock(); /* start time */
+                joker_delay = 0xff;
             }
 
             /* demo mode */
