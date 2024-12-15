@@ -1,0 +1,26 @@
+
+Changes since Preview 2 (ninja@the-dreams.de)
+
+    * extract binary blobs, add Makefile; now source is in compilable state
+      (Compiled with CC65 V2.12.0 using Linux)
+
+    * detect "no more moves" correctly in conjunction with a joker
+      Those bugs delayed the original release. One found by j0x/WOW, one by me
+
+    * get your time bonus even shortly before time runs out
+
+    * no music fragments while saving the hiscore
+
+    * demo mode exits if it fails (which happens rarely)
+
+    * no initial garbage characters when entering highscore
+
+    * fix timer delay on first game after loading
+
+    * fix case with broken screen in demo mode
+
+    * disable kernal messages on restart
+
+    * remove trailing white spaces from source
+
+    * update scrolltext & default highscores
