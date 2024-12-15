@@ -1,24 +1,93 @@
 
-Changes since Preview 3 (groepaz@gmx.net)
+2011 - Final RC1 (groepaz@gmx.net)
 
     * trivial changes in linker config to make it work with latest cc65
-      snapshot (Compiled with CC65 V2.12.9 using Linux)
+      snapshot (Compiled with CC65 V2.13.9 SVN version: 4974M using Linux)
+
+    * disabled cbm+shift (switch case) (bug reported by l.a.style)
+
+    * changed scroller to say "final version"
+
+    * some more cosmetic code cleanup
+
+2010 - Final Preview (groepaz@gmx.net)
+
+    * trivial changes in linker config to make it work with latest cc65
+      snapshot (Compiled with CC65 V2.13.9 using Linux)
 
     * enabled compiler optimizations in the makefile
 
     * trivial bugfix in the "clean" target
 
+    Fixed bugs:
+
     * made assembler functions that return "unsigned char" properly set the
       X register to zero before returning to conform with cc65 calling
       conventions. (not doing this may result in odd behaviour/bugs)
 
-    * fixed a bug that prevented it from working on NTSC (yay!)
+    * at various places only fire button port 2 was checked (so player 2 could
+      not skip certain screens)
+
+    * all hardcoded delay loops and wait-for-rasterline in main loop removed and
+      replaced by a frame-synced function, which makes the various delays much
+      more predictable :)
+
+    cosmetical changes/additions:
+
+    * added screenwipe when leaving title screen, reworked fld, added color fading
+      and music fade out.
+
+    * added screenwipe and music fade out when leaving high scores
+
+    * added cursor on high score name entry
+
+    * fixed various glitches when switching screens (junk displayed for a fraction
+      of a frame)
+
+    * added a/w/s/d + shift keyboard input for player 1 (joystick port 2)
+
+    * joystick port one can now also be used in the title screen (however, a single
+      player game can only be started using joystick in port 2)
+
+    NTSC related:
+
+    * fixed a bug that prevented it from working on NTSC (missing instruction)
 
     * changed ingame interupt to use 50hz timers, the onslaught release is
       much harder to play on NTSC than on PAL since the time is still driven
-      by the raster irq.
+      by the raster irq. this also truely fixes the cause of the "animal
+      insertion bug" mentioned by onslaught.
 
-Changes since Preview 2 (ninja@the-dreams.de)
+    * reworked ingame multiplexer to work with the 50Hz timer irq
+
+    * reworked all other interrupt handlers, music always runs in a 50Hz timer
+      interrupt so it plays at correct speed at all times in NTSC
+
+    -> the game should behave in NTSC exactly as in PAL now
+
+    other:
+
+    * some source cleanup
+
+    * update scrolltext & default highscores
+
+15 January 2009 - Preview V3 + [pal/ntsc] (Onslaught)
+
+    [ http://noname.c64.org/csdb/release/?id=74715 ]
+
+    Fixed bugs (for NTSC):
+    - Random animal insertion now runs fine on NTSC. This was for some reason due
+      to a raster comparison problem related to the contents of the accumulator.
+      This was fixed by setting accumulator to a fixed value. See code at $0dba
+      for details.
+    - Fixed small bug in the multiplexer during animals dropping.
+    - Unwanted char memory was flickering under the white colour bar on the title
+      screen. This was easily fixed by setting the char colours to the background
+      colour, hiding away the appearance.
+
+13 January 2009 - Preview 3 (ninja@the-dreams.de)
+
+    [ http://noname.c64.org/csdb/release/?id=74653 ]
 
     * extract binary blobs, add Makefile; now source is in compilable state
       (Compiled with CC65 V2.12.0 using Linux)
@@ -43,3 +112,18 @@ Changes since Preview 2 (ninja@the-dreams.de)
     * remove trailing white spaces from source
 
     * update scrolltext & default highscores
+
+2008 - Preview V2 +2 (Laxity)
+
+    [ http://noname.c64.org/csdb/release/?id=69310 ]
+
+January 2008 - Preview 2 (Hannenz)
+
+    [ http://noname.c64.org/csdb/release/?id=61525 ]
+
+    * This version includes two player mode
+    * some bugs fixed
+
+10 May 2006 - Preview (Hannenz)
+
+    [ http://noname.c64.org/csdb/release/?id=33799 ]

@@ -1,3 +1,9 @@
+
+
+DEBUG = 0
+
+DEMO_BUTTON_DELAY = 125
+
 ;---------------------------------------------------------------------------------------
 ;zoo mania assembler routines
 ;04/2004 hannenz
@@ -71,15 +77,29 @@ _bmp_data:		.incbin "zootitle.pic"
 ;---------------------------------------------
 ;void __fastcall__ init_msx(unsigned char);
 ;---------------------------------------------
-			.export _init_msx;
+			.export _init_msx
 _init_msx:		jmp $1000
 
+                        .export _detectvideo
+_detectvideo:
+    sei
+    ldx #0
+@l1:
+    lda $d012
+@l2:
+    cmp $d012
+    beq @l2
+    bmi @l1
+    cmp #$20
+    bcc @ntsc
+    inx
+@ntsc:
+    stx $02a6
+    cli
+    rts
 ;---------------------------------------------------
-init_irq_timer:
-;			lda #0
-;			sta $d01a
-;			lda #$81
-;			sta $dc0d
+    .export _sync_irq_timer
+_sync_irq_timer:
 		
 			lda #$00
 			sta $dc0e
@@ -95,8 +115,8 @@ init_irq_timer:
 			beq @ntsc
 
 			; 50hz on PAL
-			lda #<((63*312)-1)
-			ldy #>((63*312)-1)
+                        lda #<((63*312)-1)
+                        ldy #>((63*312)-1)
 			jmp @nontsc
 @ntsc:
 			; 50hz on NTSC
@@ -107,7 +127,11 @@ init_irq_timer:
 			sta $dc04
 			sty $dc05
 		
-			lda #$11
+                        lda #$11
+                        sta $dc0e
+                        rts
+init_irq_timer:
+			lda #$01
 			sta $dc0e
 			rts
 		
@@ -120,18 +144,23 @@ init_irq_timer:
 			.export _game_irq
 
 _game_irq:		sei
+                        lda #$7b
+                        sta $d011
+
 			lda #<_interrupt_handler
 			ldx #>_interrupt_handler
 			ldy #0
 			sta $314
 			stx $315
-;			sty $d012
-			lda #$18
-			sta $d016
+
+                        lda #3
+                        sta $dd00
+                        lda #$1a
+                        sta $d018
+                        lda #$18
+                        sta $d016
 			lda #0
 			sta $d021
-;			lda #$1b
-;			sta $d011
 
 			jsr init_irq_timer
 
@@ -139,7 +168,10 @@ _game_irq:		sei
 			sta $d01a
 			lda #$81
 			sta $dc0d
-		
+
+                        lda #$1b
+                        sta $d011
+
 			lda $dc0d
 			asl $d019
 		
@@ -152,78 +184,21 @@ _game_irq:		sei
 
 			.export _fld
 
-_fld:			sei
-			asl
-			asl
-			asl
-			clc
-			adc #$33	;line*8 + $33, start of fld
-			sta $d012
-			sta fld_line+1
-			lda #255
-			sec
-			sbc fld_line+1
-			sta fld_tmp
+_fld:
+        sta fldlines
+        lsr
+        lsr
+        tay
+        lsr
+        tax
+        lda fldcols,x
+        sta fldcol
+        lda fldcols2,y
+        sta fldcol2
+        rts
 
-			lda #$28
-			jsr _setgfx
-			ldx #0
-			stx $d016
-			stx $d021
-			stx _fld_done
-			inx
-			stx fld+1
-			lda #<fld
-			ldx #>fld
-			sta $314
-			stx $315
-			lda #$1b
-			sta $d011
-			asl $d019
-			cli
-			rts
-
-fld:			ldx #1
-@loop:			lda $d012
-			cmp $d012
-			beq *-3
-			and #7
-			ora #$10
-			sta $d011
-			dex
-			bne @loop
-
-			lda #8
-			ldx $d012
-			cpx $d012
-			beq *-3
-			sta $d021
-
-			asl fld+1
-			lda fld+1
-			cmp fld_tmp
-			bcc @skip
-			sta _fld_done
-			lda #0
-			sta $d020
-
-@skip:			asl $d019
-			lda #<fld1
-			ldx #>fld1
-			ldy #255
-			jmp out1
-
-fld1:			lda #$1b
-			sta $d011
-			lda #0
-			sta $d021
-
-			jsr $1003
-			asl $d019
-			lda #<fld
-			ldx #>fld
-fld_line:		ldy #0
-			jmp out1
+fldcols:  .byte 8,8,8,2,9,0,0,0
+fldcols2: .byte 1,1,1,1,1,7,10,12,8,2,9,0,0,0,0,0
 
 ;---------------------------------------------------
 ;void setup_title_irq(void);
@@ -240,87 +215,101 @@ _title_irq:		sei
 			lda $dd0d
 			lda #1
 			sta $d01a
-			lda #$1b
+
+			lda #$7b
 			sta $d011
+
+                        jsr init_irq_timer
+
+                        lda #$81
+                        sta $dc0d
 
 			lda #<title_irq
 			ldx #>title_irq
-			ldy #$fa
+			ldy #$b0 -1
 			sta $314
 			stx $315
 			sty $d012
-			asl $d019
+			
 			lda #<(scroll_text-1)
 			ldx #>(scroll_text-1)
 			sta $7a
 			stx $7b
+
+                        lda $dc0d
+                        asl $d019
+			
 			cli
 			rts
 ;---------------------------------------------------------
-_inter_irq:		sei
-			lda #<irq_x
-			ldx #>irq_x
-			ldy #$c8
-			sta $314
-			stx $315
-			sty $d012
-;			lda #$1b
-;			sta $d011
-;			lda #$01
-;			sta $d01a
-;			lda #$7f
-;			sta $dc0d
+_inter_irq:
+        sei
+        lda #<irq_x
+        ldx #>irq_x
+        ldy #$c8
+        sta $314
+        stx $315
+        sty $d012
 
-			jsr init_irq_timer
-		
-			lda #$01
-			sta $d01a
-			lda #$81
-			sta $dc0d
+        jsr init_irq_timer
 
-			lda $dc0d
-			asl $d019
-			cli
-			rts
+        lda #$01
+        sta $d01a
+        lda #$81
+        sta $dc0d
+
+        lda $dc0d
+        asl $d019
+        cli
+        rts
 
 irq_x:
-			sei
-			asl $d019
-			bcc @timer
-		
-		dec $d021
-			lda #$1b
-			sta $d018
+        sei
+        asl $d019
+        bcc @timer
 
-		ldx #$a0
+    ; raster IRQ
+.if DEBUG = 1
+        dec $d021
+.endif
+        lda #$1b
+        sta $d018
+
+        ldx #$a0
 @lp:
-		dex
-		bne @lp
+        dex
+        bne @lp
 		
-;			lda #255
-;			cmp $d012
-;			bne *-3
+        lda #$1f
+        sta $d018
 
-			lda #$1f
-			sta $d018
+.if DEBUG = 1
+        inc $d021
+.endif
+        cli
+        ; force cbm+shift off
+        lda #$80
+        sta $0291
+        jmp $ea31
 
-		inc $d021
-		cli
-			jmp $febc
-		
-;			jmp $ea31
+    ; 50 Hz TImer IRQ
 
 @timer:
-			lda $dc0d
-		cli
+        lda $dc0d
+        cli
 		
-			inc $d020
-			jsr $1003
-			dec $d020
+.if DEBUG = 1
+        inc $d020
+.endif
+        jsr $1003
+.if DEBUG = 1
+        dec $d020
+.endif
 
-;			jmp out3
-			jmp $febc
+        inc framecount50Hz
+        jmp $febc
 
+;---------------------------------------------------------
 
 		
 			.export _hs_irq
@@ -355,7 +344,9 @@ irq_hs:
 			lsr $d019
 			bcc @timer
 
+.if DEBUG = 1
 		dec $d021
+.endif
 			lda #$1b
 			sta $d018
 
@@ -363,36 +354,47 @@ irq_hs:
 @lp:
 		dex
 		bne @lp
-		
-;			lda #255
-;			cmp $d012
-;			bne *-3
 
 			lda #$1f
 			sta $d018
+.if DEBUG = 1
 		inc $d021
+.endif
+                inc framecount
 		cli
-;			jmp $febc
-			jmp $ea31
-@timer:
-			lda $dc0d
-		cli
-		
-			inc $d020
-			jsr $1003
-			dec $d020
 
-;			jmp out3
-			jmp $febc
+        ; force cbm+shift off
+        lda #$80
+        sta $0291
+			jmp $ea31
+
+        ; 50 Hz Timer Irq
+@timer:
+        lda $dc0d
+        cli
+		
+.if DEBUG = 1
+        inc $d020
+.endif
+        jsr $1003
+.if DEBUG = 1
+        dec $d020
+.endif
+        inc framecount50Hz
+        jmp $febc
 		
 ;---------------------------------------------------
 ;interrupt handler
 ;---------------------------------------------------
 ;in-game irq routine
 
-_interrupt_handler:	;jsr __game_interrupt
-			;jmp $ea31
+                        .export _getshift
+_getshift:
+                        lda $028d
+                        and #1
+                        rts
 
+_interrupt_handler:
 			asl $d019		;acknoledge raster irq
 			lda $dc0d
 
@@ -423,8 +425,41 @@ _interrupt_handler:	;jsr __game_interrupt
 @skip:			dec count
 			jmp timer
 
-get_joy:		ldy _tt
+get_joy:
+                        ldy _tt
+                        bne @skipkeys
+
+                        lda $028d
+                        and #1
+                        bne @skipkeys
+
+                        lda $c5
+                        cmp #9 ;w
+                        bne @skipkeys1
+                        lda #126
+                        bne @dokey
+@skipkeys1:
+                        cmp #10 ;a
+                        bne @skipkeys2
+                        lda #123
+                        bne @dokey
+@skipkeys2:
+                        cmp #13 ;s
+                        bne @skipkeys3
+                        lda #125
+                        bne @dokey
+@skipkeys3:
+                        cmp #18 ;d
+                        bne @skipkeys
+                        lda #119
+                        bne @dokey
+
+
+@skipkeys:
+                        ldy _tt
 			lda $dc00,y		;get joystick
+
+@dokey:
 			and #$7f
 
 			ldx _demo		;if in demo mode get movement from cue
@@ -557,7 +592,6 @@ do_timer:		dec del			;respect timer delay
 			sta del
 
 			lda _time1		;decrease timer...
-;			bne *+5
 			bne @sk
 			dec _time1+1
 @sk:
@@ -644,10 +678,13 @@ joker:			lda _joker		;is there a joker running...??!
 			bne @lp2
 
 exit:
+.if DEBUG = 1
 			inc $d020
+.endif
 			jsr $1003		;play that funky music :)
+.if DEBUG = 1
 			dec $d020
-					
+.endif					
 			dec rotate_delay	;rotate the chars of the timer bar
 			lda rotate_delay	;each 4th frame
 			and #3
@@ -661,7 +698,14 @@ exit:
 			rotate 249
 			rotate 248
 			rotate 247
-skip_rotate:		jmp $ea31
+skip_rotate:
+                        inc framecount
+                        inc framecount50Hz
+
+        ; force cbm+shift off
+        lda #$80
+        sta $0291
+                        jmp $ea31
 
 
 ;draw the timer bar
@@ -708,7 +752,7 @@ _print2x2_centered:	sta line		;line
 			sta color2		;color2
 			jsr popa
 			sta color1
-			jsr popax		;get strinf
+			jsr popax		;get string
 			sta $fc
 			stx $fd
 
@@ -724,6 +768,7 @@ _print2x2_centered:	sta line		;line
 loop:			iny
 			lda ($fc),y
 			bne loop
+
 			sty aux
 			lda #20
 			sec
@@ -852,29 +897,10 @@ loop1:			asl tmp
 			rts
 
 ;---------------------------------------------
-;void __fastcall__ wait(unsigned char raster);
-;---------------------------------------------
-; used from asm AND C !
-			.export _wait
-
-_wait:
-			cmp $d012
-			bne _wait
-			rts
-
-;---------------------------------------------
 ;void random_init(void);
 ;---------------------------------------------
 			.export _random_init
 _random_init:
-;			lda #$00
-;			sta $dc0e
-;			lda #$25
-;			sta $dc04
-;			lda #$40
-;			sta $dc05
-;			lda #$11
-;			sta $dc0e
 			rts
 					
 ;---------------------------------------------
@@ -901,7 +927,7 @@ _random:
 					
 			rts
 
-; args, some of the asm routines seem to rely on Y not beeing modified
+; args, some of the asm routines seem to rely on X not being modified
 ; by this routine
 				
 _random_asm:
@@ -949,6 +975,9 @@ no:			lda #0
 			.export _wait_for_key_or_joy
 
 _wait_for_key_or_joy:	lda _demo
+			bne @exitdelay
+			lda $028d
+			and #1
 			bne @exit
 			lda $dc00
 			cmp #111
@@ -956,7 +985,10 @@ _wait_for_key_or_joy:	lda _demo
 			lda $dc01
 			cmp #239
 			bne _wait_for_key_or_joy
-@exit:			rts
+@exit:                  rts
+@exitdelay:
+                        lda #DEMO_BUTTON_DELAY
+                        jmp _delay
 
 ;--------------------------------------------------------------
 __check_matrix:
@@ -1000,7 +1032,6 @@ __check_matrix:
 			bne @no2
 @success:
 			lda #1
-;			ldy #0
 			rts
 					
 @no2:			inc cmxi
@@ -1013,11 +1044,116 @@ __check_matrix:
 			bne @loop4
 
 			lda #0
-;			tay
 			rts
 
 ;-----------------------------------------------------------------------
-title_irq:		ldx #1
+
+title_irq:
+                        sei
+                        asl $d019
+                        bcs @raster
+
+                        lda $dc0d
+                        cli
+
+.if DEBUG = 1
+                        inc $d020
+.endif
+                        jsr $1003
+.if DEBUG = 1
+                        dec $d020
+.endif
+;                       jmp out3
+                        inc framecount50Hz
+                        jmp $febc
+@raster:
+.if DEBUG = 1
+                        lda #2
+                        sta $d020
+.endif
+                        lda #$7f
+                        sta $d015
+
+                        ldx fldcol2
+                        lda #$b7+2
+                        cmp $d012
+                        bne *-3
+                        stx $d021
+                        stx $d026
+
+                        lda #$c0+2
+                        sta $d016
+
+                        ldx #$18+3
+                        stx $d011
+
+                        ; white
+                        ldy #3
+
+                        lda $d012
+                        cmp $d012
+                        beq *-3
+                        ldx #$1a
+                        nop
+                        stx $d018
+                        sty $dd00
+
+                        ; orange -$bc
+                        ldx fldcol
+                        lda #$bc
+                        cmp $d012
+                        bne *-3
+                        stx $d021
+
+                        ldx fldlines
+                        beq @skipfld
+@loop:                  lda $d012
+                        cmp $d012
+                        beq *-3
+                        and #7
+                        ora #$10
+                        sta $d011
+                        dex
+                        bne @loop
+
+                        lda #$f8
+                        cmp $d012
+                        bne *-3
+
+                        lda #$3b
+                        sta $d011
+                        lda #$d0
+                        sta $d016
+                        lda #$38
+                        sta $d018
+                        lda #0
+                        sta $d021
+                        sta $dd00
+
+                        jmp skipscroll
+@skipfld:
+                        ldx barcolor
+                        lda barline
+                       cmp $d012
+                       bne *-3
+
+                        stx $d021
+                       clc
+                       adc #1
+                       ldx #8
+
+                       cmp $d012
+                       bne *-3
+                       stx $d021
+
+
+                        lda #$ef
+                        cmp $d012
+                        bne *-3
+
+
+                        ; white
+                        ldx #1
 			lda $d012
 			cmp $d012
 			beq *-3
@@ -1038,18 +1174,18 @@ title_irq:		ldx #1
 			cmp $d012
 			beq *-3
 
-			ldx #7
+                        ; colorbars behind scroller
+
+			ldx #7+2
+                        ldy $d012
 barlp:			lda barcolor_tab,x
-			ldy $d012
 			cpy $d012
 			beq *-3
 			sta $d021
+			iny
 			dex
 			bpl barlp
 
-			lda #$fc
-			cmp $d012
-			bne *-3
 			lda #0
 			sta $d021
 			sta $d016
@@ -1060,13 +1196,12 @@ barlp:			lda barcolor_tab,x
 			sta $dd00
 			lda #$38
 			sta $d018
-			lda $d011
-			ora #$20
+			lda #$3b
 			sta $d011
 			lda #$10
 			sta $d016
-			jsr $1003
 
+                        ; rotate bar
 			dec bar_delay
 			lda bar_delay
 @xyz:			and #1
@@ -1084,7 +1219,12 @@ barlp:			lda barcolor_tab,x
 			txa			;2
 			sta barcolor_tab,y	;4		;99
 
-@skip:			lda scroll
+        ;----------------------------------------------------
+        ; scroller
+        ;----------------------------------------------------
+
+@skip:
+                        lda scroll
 			and #7
 			bne out2
 
@@ -1096,12 +1236,15 @@ gklp:			lda $07c1,x
 			inx
 			cpx #$27
 			bne gklp
+			
 			inc $7a
 			bne *+4
 			inc $7b
+			
 wrap:			ldy #0
 			lda ($7a),y
 			bne okok
+			
 			lda #<scroll_text
 			ldx #>scroll_text
 			ldy #1
@@ -1109,63 +1252,38 @@ wrap:			ldy #0
 			sta $7a
 			stx $7b
 			jmp wrap
+			
 okok:			cmp #$10
 			bcs okok1
 			sta $dbc0+39
 			bcc out2
+			
 okok1:			jsr _pet2scr
 			ora #$80
 			sta $07e7
-out2:			lda #<title_irq2
-			ldx #>title_irq2
-			ldy #$ba - 2
-out1:			sta $314
-			stx $315
-			sty $d012
-out3:			pla
-			tay
-			pla
-			tax
-			pla
-			rti
+out2:
+out1:
+out3:
+
+skipscroll:
 
 
+.if DEBUG = 1
+                        lda #0
+                        sta $d020
+.endif
+                        inc framecount
 
-title_irq2:		ldx #1
-			lda $d012
-			cmp $d012
-			beq *-3
-			stx $d021
-			ldx #$1b
-			lda $d012
-			cmp $d012
-			beq *-3
-			stx $d011
-			dex
-			stx $d018
-			ldx #3
-			lda $d012
-			cmp $d012
-			beq *-3
-			stx $dd00
+                        cli
+        ; force cbm+shift off
+        lda #$80
+        sta $0291
+                        jmp $ea31
 
-			ldx #8
-			lda #$bc
-			cmp $d012
-			bne *-3
-			stx $d021
+fldlines:  .byte 0
+fldcol:    .byte 0
+fldcol2:   .byte 0
 
-			lda #0
-			sta $d016
-
-			asl $d019
-			lda #<title_irq
-			ldx #>title_irq
-			ldy #$f0 - 1
-			sta $314
-			stx $315
-			sty $d012
-			jmp out1
 ;---------------------------------------------------------------------------------
 
 nmi:			pha
@@ -1180,43 +1298,51 @@ nmi:			pha
 			.export _ass_setup
 
 _ass_setup:
-;			jsr $ff8a	;restore Vectors
-;			jsr $e3bf	;init BASIC-RAM
-
 			lda #<nmi
 			ldx #>nmi
 			sta $318
 			stx $319
 
-			lda #11
-			sta $d022
-			sta $d025
-			lda #8
-			sta $d023
-			sta $d026
-			ldx #2
-			stx $d02d
-			dex
-			stx $d02e
-			dex
-			stx $d020
-			stx $d021
-			dex
-			stx $d01c
-			lda #39
-			ldx #50
-			sta $d00e
-			stx $d00f
-			clc
-			adc #24
-			sta $d00c
-			stx $d00d
-			lda #$3f
-			sta $07ff
-			sta $07fe
 			lda #1
 			sta del
 			rts
+
+                        .export _sprites_setup
+
+_sprites_setup:
+                        lda #11
+                        sta $d022
+                        sta $d025
+                        lda #8
+                        sta $d023
+                        sta $d026
+                        ldx #2
+                        stx $d02d
+                        dex
+                        stx $d02e
+                        dex
+                        stx $d020
+                        stx $d021
+                        dex
+                        stx $d01c
+                        lda #39
+                        ldx #50
+                        sta $d00e
+                        stx $d00f
+                        clc
+                        adc #24
+                        sta $d00c
+                        stx $d00d
+
+                        lda #0
+                        sta $d010
+                        sta $d01d
+                        sta $d017
+
+                        lda #$3f
+                        sta $07ff
+                        sta $07fe
+                        rts
 
 ;---------------------------------------------------------------------------------
 ;void cursor_on(void);
@@ -1404,7 +1530,7 @@ br_loop:		jsr _random_asm
 			lda #$ff
 			sta _matrix,x
 			jsr p3x3
-			jsr _wait
+                        jsr _waitframe
 			dec br_i
 			bne br_loop
 			rts
@@ -1446,9 +1572,7 @@ app_loop:		jsr _random_asm
 			tax
 			lda _matrix,x
 			jsr p3x3
-
-			lda #1
-			jsr _wait
+                        jsr _waitframe
 
 			dec br_i
 			bne app_loop
@@ -1563,8 +1687,6 @@ _fill_matrix:		jsr _inter_irq
 
 @loop:			inc hugo
 
-;			inc $d020
-					
 			lda hugo
 			and #7
 			tay
@@ -1582,8 +1704,6 @@ _fill_matrix:		jsr _inter_irq
 
 			jsr __check_matrix
 			bne @loop
-
-;			inc $d021
 
 			jsr _check_moves
 			beq @loop
@@ -1769,6 +1889,29 @@ ys_yes:			lda #1
 ;--------------------------------------------------------------------
 ;void move_matrix(void)
 ;--------------------------------------------------------------------
+
+plex_wait_top:
+;    lda #2
+;    sta $d021
+    lda #120
+    cmp $d012
+    bcs *-3
+;    lda #0
+;    sta $d021
+    rts
+plex_wait_bot:
+    lda #242
+    cmp $d012
+    bcs *-3
+;    lda #3
+;    sta $d020
+    lda #242
+    cmp $d012
+    bcc *-3
+;    lda #0
+;    sta $d020
+    rts
+
 			.export _move_matrix
 
 _move_matrix:
@@ -1912,7 +2055,6 @@ _move_matrix:
 			asl		;depth*6
 			sta @comp+1
 
-
 @for_loop3:				;if (l%6 == 0)
 			dec spr
 			bne @endif5
@@ -1923,7 +2065,10 @@ _move_matrix:
 			ora #$c1
 			sta $d015
 
-@endif5:		lda $d00b
+@endif5:
+
+                        ; move sprites 0-5 4 down
+                        lda $d00b
 			clc
 			adc #4
 			sta $d00b
@@ -1950,8 +2095,9 @@ _move_matrix:
 
 			lda $d001
 			sta bck
-			cmp #(50+5*24)	;if((bck1 = *(char*)0xd0019 >= 50+5*24)
+			cmp #(50+5*24)	;if((bck1 = *(char*)0xd001 >= 50+5*24)
 			jcc  @else3
+
 			ldx $07f8
 			ldy $d027
 			stx bck+1
@@ -1964,8 +2110,9 @@ _move_matrix:
 			stx bck+4
 			sty bck+5
 
-			lda #255
-			jsr _wait	;wait(255)
+;			lda #255-10
+;			jsr _wait	;wait(255)
+			jsr plex_wait_bot
 
 			ldx columns	;row0 --> spr0
 			lda _matrix,x
@@ -2007,8 +2154,8 @@ _move_matrix:
 			sbc #(6*24)
 			sta $d001
 
-@end_plex:		lda #120
-			jsr _wait
+@end_plex:
+                        jsr plex_wait_top
 
 			lda bck
 			ldx bck+1
@@ -2023,10 +2170,12 @@ _move_matrix:
 			stx $07f9
 			sty $d028
 			jmp @end_for
-@else3:			lda #255
-			jsr _wait
+@else3:
+                        jsr plex_wait_bot
 
-@end_for:		inc temp_l
+@end_for:
+
+                        inc temp_l
 			lda temp_l
 @comp:			cmp #6
 			jne @for_loop3
@@ -2075,9 +2224,9 @@ get_matrix:		stx @add+1
 			lda _matrix,y
 			rts
 
-			.export _getkey
-_getkey:		jsr $ffcc
-			jmp $ffe4
+                        .export _getkey
+_getkey:                jsr $ffcc
+                        jmp $ffe4
 
 ;---------------------------------------------------------------------------------
 ;unsigned char __fastcall__ check_moves(void);
@@ -2123,7 +2272,6 @@ cm_exit:		lda #0			;free timer freeze
 			tax
 			sta _stop
 			lda #1			;success
-;			ldx #0
 			rts			;return
 endif1:
 			lda cmi			;now swap vertically
@@ -2212,7 +2360,6 @@ _getfromcue:		lda _cue_max
 			bne @lp
 @done:			tya
 @exit:
-;			ldy #0
 			rts
 
 ;---------------------------------------------------------------------------------
@@ -2222,7 +2369,7 @@ _getfromcue:		lda _cue_max
 
 _do_bar:		clc
 			adc #(55+18*8)
-			pha
+                        sta barline
 			inc @delay
 			lda @delay
 			and #3
@@ -2232,31 +2379,41 @@ _do_bar:		clc
 			and #7
 			tay
 			ldx @tab,y
-			pla
-			cmp $d012
-			bne *-3
-			stx $d021
-			clc
-			adc #1
-			ldx #8
-			cmp $d012
-			bne *-3
-			stx $d021
+                        stx barcolor
 			rts
 @delay:			.byte 0
 @tmp:			.byte 0
 @tab:			.byte 0,11,12,15,1,15,12,11
 
+barline:        .byte 0
+barcolor:       .byte 0
+
+                        .export _waitframe50Hz
+_waitframe50Hz:
+                        lda framecount50Hz
+                        cmp framecount50Hz
+                        beq *-3
+                        rts
 
 			.export _delay
 
 _delay:			tax
-			lda #100
-@loop:			jsr _wait
+			;lda #100
+@loop:
+                        ;jsr _wait
+                        jsr _waitframe50Hz
 			dex
 			bne @loop
 			rts
 
+                        .export _waitframe
+_waitframe:
+                        lda framecount
+                        cmp framecount
+                        beq *-3
+                        rts
+framecount:     .byte 0
+framecount50Hz: .byte 0
 ;---------------------------------------------------------------------------------
 ;void screen_off(void); void screen_on(void)
 ;---------------------------------------------------------------------------------
@@ -2355,10 +2512,11 @@ tab_lo:			.byte 0,40,80,120,160,200,240,<280,<320,<360,<400,<440,<480,<520,<560,
 			.byte <760,<800,<840,<880,<920,<960
 tab_hi:			.byte 4,4,4,4,4,4,4,5,5,5,5,5,5,6,6,6,6,6,6,6,7,7,7,7,7
 
-barcolor_tab:		.byte 2,10, 10,10,10,2,2, 9
-			.byte 8, 8, 7, 7, 7, 7, 8, 8
-			.byte 5, 5,13,13,13,13, 5, 5
-			.byte 6, 6,14,14,14,14, 4,4
+barcolor_tab:
+                        .byte $00,$09,$02,$08,$0c,$08,$02,$09
+                        .byte $00,$06,$0b,$04,$0e,$04,$0b,$06
+                        .byte $00,$09,$02,$08,$0c,$08,$02,$09
+                        .byte $00,$06,$0b,$04,$0e,$04,$0b,$06
 
 hugo:			.byte 0
 text:			.byte "one moment, please...!",0
@@ -2372,14 +2530,37 @@ scroll_text:
 .else
 
 scroll_text:
-.byte 2,"Welcome to ",1,"ZOO MANIA.            ",3
-.byte "This is ",1,"preview version 3 ",3,"of this game with some important bugfixes. ",11,"it was released by ninja in january 2009 and approved by hannenz who left the scene for good. ",2,"so, in case you encounter problems, "
-.byte "contact ninja for assistance. "
-.byte 3,"Now for the complete credits and original scrolltext: "
-.byte 1,"code ",11,"hannenz ",1,"ingame gfx ",11,"crossbow ",1,"msx ",11,"fanta ",1,"title pic ",11,"scorp.ius ",1,"idea ",11,"bugjam ",1,"bugfixes ",11,"ninja ";,7,"published and released by ",1,"CRONOSOFT ",7,"2006.      ",1
-.byte "       instructions: ",11,"use ",1,"joy #2 ",11,"in single player mode or ",1,"joy #1 and #2 ",11,"in two player modes. try to ",1,"swap ",11,"the animals so that ",1,"rows or columns of three or more equal animals ",11,"occur."
-.byte " there is a certain amount of animals to catch to proceed to the next level. ",1,"time ",11,"is your enemy.  "
-.byte 1,"keys: ",11,"hit ",1,"RUN/STOP ",11,"to pause the game. ",1,"RESTORE ",11,"will get you back to the game menu. ",1,"have fun!     ",14,"hannenz@freenet.de & ninja@the-dreams.de                                        "
+.byte $0f,"Welcome to ",1,"ZOO MANIA.            "
+.byte 3,"This is the ",1,"final version ",3,"of this game with even more important bugfixes. "
+;.byte $0f,"it was released by ninja in january 2009 and approved by hannenz who left the scene for good. ",$0a
+;.byte "so, in case you encounter problems, "
+;.byte "contact ninja for assistance. "
+;.byte 3,"Now for the complete credits and original scrolltext: "
+.byte "          "
+.byte 1,"code ",$0f,"hannenz "
+.byte 1,"ingame gfx ",$0f,"crossbow "
+.byte 1,"msx ",$0f,"fanta "
+.byte 1,"title pic ",$0f,"scorp.ius "
+.byte 1,"idea ",$0f,"bugjam "
+.byte 1,"bugfixes ",$0f,"ninja ",$0f,"groepaz "
+.byte 1,"ntsc fixes ",$0f,"groepaz "
+.byte "          "
+.byte $0f,"instructions: ",$0f,"use ",1,"joy #2 ",$0f,"in single player mode or "
+.byte 1,"joy #1 and #2 ",$0f,"in two player modes. "
+.byte $0f,"use ",1,"W A S D ",$0f,"and ",1,"SHIFT ",$0f,"if you can't find your joystick. "
+.byte "          "
+.byte $0f,"try to ",1,"swap ",$0f,"the animals so that "
+.byte 1,"rows or columns of three or more equal animals ",$0f,"occur."
+.byte " there is a certain amount of animals to catch to proceed to the next level. ",1,"time ",$0f,"is your enemy.  "
+.byte 1,"keys: ",$0f,"hit "
+.byte 1,"RUN/STOP ",$0f,"to pause the game. "
+.byte 1,"RESTORE ",$0f,"will get you back to the game menu. "
+.byte 1,"D ",$0f,"in the game menu jumps to demo mode. "
+.byte "          "
+.byte 1,"have fun! "
+.byte "          "
+.byte $0f,"hannenz@freenet.de  ninja@the-dreams.de  groepaz@gmx.net "
+.byte "                                                             "
 .byte 0
 
 .endif

@@ -8,19 +8,31 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-#define EMPTY_SYMB 0xff
-#define JOKER_SYMB 0xb0
+#define DEBUG 0
 
-#define SWAP_DELAY 100
-#define XOFFS 2
-#define TIME_BONUS 2
+#define EMPTY_SYMB      0xff
+#define JOKER_SYMB      0xb0
 
-#define fire_up 110
-#define fire_down 109
-#define fire_left 107
-#define fire_right 103
-#define fire 111
-#define nothing 127
+#define DEMO_DELAY            (50/4)
+#define DEMO_START_DELAY      (50*2)
+#define DEMO_TIMEOUT_DELAY    (50*2)
+
+#define MATRIX_HIT_DELAY      (50/2)
+#define MATRIX_SCORE_DELAY    (50/3)
+#define START_DELAY           (50/2)
+#define TIMEOUT_BLINK_DELAY   (50/2)
+
+#define XOFFS           2
+#define TIME_BONUS      2
+
+#define fire_up         110
+#define fire_down       109
+#define fire_left       107
+#define fire_right      103
+#define port2_fire      111
+#define nothing         127
+
+#define TITLE_LINES     17
 
 // globals
 
@@ -28,58 +40,10 @@ extern char cue[16];
 extern char cue_max,demo;
 
 extern struct hs{
-	char name[11];
-	char level;
-	unsigned long score;
+    char name[11];
+    char level;
+    unsigned long score;
 } highscore[10];
-
-struct {
-	char x;
-	char y;
-	unsigned num;
-} scores[64];
-
-char del,chk_flg,no_more_moves_flag;
-unsigned long score[2];
-unsigned long s_temp;	//#
-unsigned int sc;
-clock_t jok1;
-char str_dummy[21];
-char backup[8][8];
-char hits[8];
-
-struct __vic2 *vic = (void*)0xd000;
-unsigned char *spr_ptr = (void*)0x7f8;
-
-// constant values
-
-const char x_offsets[]={3,4,6};
-const char y_offsets[]={4,6,7};
-const char sc_coltab[] = {6,3,1};
-const char hs_coltab1[] = { 3,14, 6, 4,10, 8, 8, 7,13, 5};
-const char hs_coltab2[] = {15,15,14, 8, 2,10, 7,15,15,13};
-const char hs_coltab3[] = {0,11,11,12,12,15,15,1};
-static const char level_time[] = {12,10, 9, 8, 7, 6, 5, 4, 3, 3, 3, 2, 2, 2, 1, 1};
-static const char time_bonus[] = { 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 6, 6};
-
-char mssg[16][16] = 	{
-				"panda party",
-				"monkey business",
-				"lion's den",
-				"happy hippo",
-				"elephant walk",
-				"bullride",
-				"tough giraffe",
-				"safari",
-				"animal farm",
-				"ape escape",
-				"crocodile rock",
-				"rhino dance",
-				"rock'n'roll",
-				"rodeo",
-				"zoo maniac",
-				"quick'n'dirty"
-};
 
 // extern variables & function prototypes from assembler file "zoo_ass.s"
 
@@ -99,7 +63,8 @@ void hs_irq(void);
 
 void __fastcall__ init_msx(unsigned char tune);
 void __fastcall__ setgfx(int);
-void __fastcall__ wait(char);
+void __fastcall__ waitframe(void);
+void __fastcall__ detectvideo(void);
 void random_init(void);
 unsigned char random(void);
 unsigned char __fastcall__ pet2scr(unsigned char);
@@ -108,6 +73,7 @@ void wait_for_key_or_joy(void);
 void __fastcall__ print2x2_centered(char *str,char color1, char color2,char line);
 void __fastcall__ plot2x2_xy (char c,char x,char y,char color1,char color2);
 void ass_setup(void);
+void sprites_setup(void);
 void cursor_on(void);
 void cursor_off(void);
 
@@ -141,6 +107,7 @@ void load_hs(void);
 void save_hs(void);
 void appear(void);
 unsigned char getkey(void);
+unsigned char getshift(void);
 void __fastcall__ print2spr(char*,char);
 void __fastcall__ put2cue(char);
 void __fastcall__ do_bar(char);
@@ -148,4 +115,5 @@ void __fastcall__ delay(char);
 void __fastcall__ fld(char);
 void screen_on(void);
 void screen_off(void);
+void sync_irq_timer(void);
 void __fastcall__ joker_hit(char pl);
