@@ -5,7 +5,9 @@ IMAGE = "zoo_mania_prv3.d64"
 all: disk
 
 prg:
-	cl65 -o zoo.prg -C zoo.cfg zoo.c zoo_ass.s
+	cl65 -Osir -o zoo.prg -C zoo.cfg zoo.c zoo_ass.s
+#	cl65 -o zoo.prg -C zoo.cfg zoo.c zoo_ass.s
+	cp zoo.hi.bin zoo.hi
 
 disk: prg
 	c1541 -format zoomania,zm d64 zoo.d64
@@ -18,5 +20,5 @@ dist: prg
 	c1541 $(IMAGE) -write zoo_exo.prg "zoo mania prv3"
 	c1541 $(IMAGE) -write zoo.hi
 	
-clean:
-	rm zoo_ass.o zoo.o zoo.prg zoo_exo.prg zoo.d64 $(IMAGE)
+clean: 
+	rm -f *~ zoo_ass.o zoo.o zoo.prg zoo_exo.prg zoo.d64 $(IMAGE)

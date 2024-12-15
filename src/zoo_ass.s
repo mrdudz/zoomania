@@ -75,7 +75,45 @@ _bmp_data:		.incbin "zootitle.pic"
 _init_msx:		jmp $1000
 
 ;---------------------------------------------------
+init_irq_timer:
+;			lda #0
+;			sta $d01a
+;			lda #$81
+;			sta $dc0d
+		
+			lda #$00
+			sta $dc0e
+
+			ldy #$08
+@wait:
+			cpy $d012
+			bne @wait
+			lda $d011
+			bmi @wait
+
+			lda $02a6
+			beq @ntsc
+
+			; 50hz on PAL
+			lda #<((63*312)-1)
+			ldy #>((63*312)-1)
+			jmp @nontsc
+@ntsc:
+			; 50hz on NTSC
+			lda #<($4fb4)
+			ldy #>($4fb4)
+@nontsc:
+
+			sta $dc04
+			sty $dc05
+		
+			lda #$11
+			sta $dc0e
+			rts
+		
+;---------------------------------------------------
 ;void init_irq(void);
+; used from asm AND C !
 ;---------------------------------------------------
 ;inits the irq running in-game
 
@@ -87,14 +125,24 @@ _game_irq:		sei
 			ldy #0
 			sta $314
 			stx $315
-			sty $d012
-			asl $d019
+;			sty $d012
 			lda #$18
 			sta $d016
 			lda #0
 			sta $d021
-			lda #$1b
-			sta $d011
+;			lda #$1b
+;			sta $d011
+
+			jsr init_irq_timer
+
+			lda #$00
+			sta $d01a
+			lda #$81
+			sta $dc0d
+		
+			lda $dc0d
+			asl $d019
+		
 			cli
 			rts
 ;---------------------------------------------------
@@ -212,26 +260,141 @@ _title_irq:		sei
 _inter_irq:		sei
 			lda #<irq_x
 			ldx #>irq_x
-			ldy #$c2
+			ldy #$c8
 			sta $314
 			stx $315
 			sty $d012
-			lda #$1b
-			sta $d011
+;			lda #$1b
+;			sta $d011
+;			lda #$01
+;			sta $d01a
+;			lda #$7f
+;			sta $dc0d
+
+			jsr init_irq_timer
+		
+			lda #$01
+			sta $d01a
+			lda #$81
+			sta $dc0d
+
+			lda $dc0d
 			asl $d019
 			cli
 			rts
+
+irq_x:
+			sei
+			asl $d019
+			bcc @timer
+		
+		dec $d021
+			lda #$1b
+			sta $d018
+
+		ldx #$a0
+@lp:
+		dex
+		bne @lp
+		
+;			lda #255
+;			cmp $d012
+;			bne *-3
+
+			lda #$1f
+			sta $d018
+
+		inc $d021
+		cli
+			jmp $febc
+		
+;			jmp $ea31
+
+@timer:
+			lda $dc0d
+		cli
+		
+			inc $d020
+			jsr $1003
+			dec $d020
+
+;			jmp out3
+			jmp $febc
+
+
+		
+			.export _hs_irq
+		
+_hs_irq:		sei
+			lda #<irq_hs
+			ldx #>irq_hs
+			sta $314
+			stx $315
+		
+			ldy #$f0
+			sty $d012
+_inter_irq2:		
+			lda #$1b
+			sta $d011
+
+			jsr init_irq_timer
+		
+			lda #$01
+			sta $d01a
+			lda #$81
+			sta $dc0d
+
+			lda $dc0d
+			asl $d019
+
+			cli
+			rts
+
+irq_hs:
+		sei
+			lsr $d019
+			bcc @timer
+
+		dec $d021
+			lda #$1b
+			sta $d018
+
+		ldx #$a0
+@lp:
+		dex
+		bne @lp
+		
+;			lda #255
+;			cmp $d012
+;			bne *-3
+
+			lda #$1f
+			sta $d018
+		inc $d021
+		cli
+;			jmp $febc
+			jmp $ea31
+@timer:
+			lda $dc0d
+		cli
+		
+			inc $d020
+			jsr $1003
+			dec $d020
+
+;			jmp out3
+			jmp $febc
+		
 ;---------------------------------------------------
 ;interrupt handler
 ;---------------------------------------------------
 ;in-game irq routine
 
-			.export _interrupt_handler
-
 _interrupt_handler:	;jsr __game_interrupt
 			;jmp $ea31
 
-__game_interrupt:	asl $d019		;acknoledge raster irq
+			asl $d019		;acknoledge raster irq
+			lda $dc0d
 
 			lda count
 			beq get_joy
@@ -394,8 +557,10 @@ do_timer:		dec del			;respect timer delay
 			sta del
 
 			lda _time1		;decrease timer...
-			bne *+5
+;			bne *+5
+			bne @sk
 			dec _time1+1
+@sk:
 			dec _time1
 
 			jsr _display_time	;and display the bar
@@ -478,7 +643,11 @@ joker:			lda _joker		;is there a joker running...??!
 			dex			;and do 3 rows...
 			bne @lp2
 
-exit:			jsr $1003		;play that funky music :)
+exit:
+			inc $d020
+			jsr $1003		;play that funky music :)
+			dec $d020
+					
 			dec rotate_delay	;rotate the chars of the timer bar
 			lda rotate_delay	;each 4th frame
 			and #3
@@ -497,7 +666,9 @@ skip_rotate:		jmp $ea31
 
 ;draw the timer bar
 
-.export _display_time
+; used from asm AND C !
+			.export _display_time
+
 _display_time:		lda _time_out
 			bne done
 			lda _time1
@@ -653,6 +824,7 @@ docol:			pha
 ;---------------------------------------------
 ;void __fastcall__ setgfx(unsigned int);
 ;---------------------------------------------
+; used from asm AND C !
 			.export _setgfx
 
 _setgfx:		ldx #4
@@ -682,30 +854,63 @@ loop1:			asl tmp
 ;---------------------------------------------
 ;void __fastcall__ wait(unsigned char raster);
 ;---------------------------------------------
+; used from asm AND C !
 			.export _wait
 
-_wait:			cmp $d012
+_wait:
+			cmp $d012
 			bne _wait
 			rts
+
+;---------------------------------------------
+;void random_init(void);
+;---------------------------------------------
+			.export _random_init
+_random_init:
+;			lda #$00
+;			sta $dc0e
+;			lda #$25
+;			sta $dc04
+;			lda #$40
+;			sta $dc05
+;			lda #$11
+;			sta $dc0e
+			rts
+					
 ;---------------------------------------------
 ;unsigned char random(void);
 ;---------------------------------------------
+; BUGBUG: the function that generates the matrix and checks wether
+;         it is solveable relies on the exact (!) behavior of this
+;         random function. replacing it with a better algo does
+;         result in a deadlock when initialising the matrix
+; used from asm AND C !
 			.export _random
 
-_random:		lda #0
+_random:
+			lda #0
 			eor $dc04
 			eor $dc05
-			eor $dd04
-			eor $dd05
-			eor $dd06
-			eor $dd07
+; these aren't running anyway ! (gpz)
+;			eor $dd04
+;			eor $dd05
+;			eor $dd06
+;			eor $dd07
 			sta _random+1
+			ldx #0
+					
 			rts
 
+; args, some of the asm routines seem to rely on Y not beeing modified
+; by this routine
+				
+_random_asm:
+			stx @xtmp+1
+			jsr _random
+@xtmp:			ldx #0
+			rts
+					
 ;---------------------------------------------
-;unsigned char __fastcall__ pet2scr(unsigned char);
-;---------------------------------------------
-			.export _pet2scr
 
 _pet2scr:		eor #$e0
 			clc
@@ -714,7 +919,8 @@ _pet2scr:		eor #$e0
 			adc #$40
 			bpl cont
 			eor #$a0
-cont:			rts
+cont:
+			rts
 
 ;------------------------------------------------
 ;unsigned char isstop(void)
@@ -725,14 +931,21 @@ _isstop:		lda #$7f
 			sta $dc00
 			cmp $dc01
 			beq no
+
 			lda #1
+			ldx #0
 			rts
+					
 no:			lda #0
+
+;			ldx #0
+			tax
 			rts
 
 ;----------------------------------------------------
 ;void wait_for_key_or_joy(void);
 ;----------------------------------------------------
+; used from asm AND C !
 			.export _wait_for_key_or_joy
 
 _wait_for_key_or_joy:	lda _demo
@@ -746,9 +959,6 @@ _wait_for_key_or_joy:	lda _demo
 @exit:			rts
 
 ;--------------------------------------------------------------
-;unsigned char _check_matrix(void);
-;--------------------------------------------------------------
-			.export __check_matrix
 __check_matrix:
 			;first we check horizontally
 
@@ -790,7 +1000,9 @@ __check_matrix:
 			bne @no2
 @success:
 			lda #1
+;			ldy #0
 			rts
+					
 @no2:			inc cmxi
 			lda cmxi
 			cmp #6
@@ -801,6 +1013,7 @@ __check_matrix:
 			bne @loop4
 
 			lda #0
+;			tay
 			rts
 
 ;-----------------------------------------------------------------------
@@ -954,8 +1167,6 @@ title_irq2:		ldx #1
 			sty $d012
 			jmp out1
 ;---------------------------------------------------------------------------------
-;void ass_setpu(void)
-;---------------------------------------------------------------------------------
 
 nmi:			pha
 			lda #140
@@ -963,6 +1174,9 @@ nmi:			pha
 			pla
 			rti
 
+;---------------------------------------------------------------------------------
+;void ass_setup(void)
+;---------------------------------------------------------------------------------
 			.export _ass_setup
 
 _ass_setup:
@@ -1008,7 +1222,7 @@ _ass_setup:
 ;void cursor_on(void);
 ;void cursor_off(void);
 ;---------------------------------------------------------------------------------
-.export _cursor_on,_cursor_off
+			.export _cursor_on,_cursor_off
 
 _cursor_on:		lda _players
 			beq oneplayer_on
@@ -1171,10 +1385,10 @@ _broesel:		jsr _kill_joker
 			lda #64
 			sta br_i
 
-br_loop:		jsr _random
+br_loop:		jsr _random_asm
 			and #7
 			sta p3x3_x
-			jsr _random
+			jsr _random_asm
 			and #7
 			sta p3x3_y
 			asl
@@ -1202,7 +1416,7 @@ br_loop:		jsr _random
 _appear:		lda #64
 			sta br_i
 
-app_loop:		jsr _random
+app_loop:		jsr _random_asm
 			and #7
 			sta p3x3_x
 			asl
@@ -1210,7 +1424,7 @@ app_loop:		jsr _random
 			adc p3x3_x
 			adc #2
 			tay
-			jsr _random
+			jsr _random_asm
 			and #7
 			sta p3x3_y
 			tax
@@ -1232,6 +1446,8 @@ app_loop:		jsr _random
 			tax
 			lda _matrix,x
 			jsr p3x3
+
+			lda #1
 			jsr _wait
 
 			dec br_i
@@ -1240,19 +1456,21 @@ app_loop:		jsr _random
 ;---------------------------------------------------------------------------------
 ;void fill(void);
 ;---------------------------------------------------------------------------------
+; used from asm AND C
 			.export _fill
 
 _fill:			lda #$ff
 			ldx #0
-:			sta $0400,x
+@lp:
+			sta $0400,x
 			sta $0500,x
 			sta $0600,x
 			sta $06e8,x
 			inx
-			bne :-
+			bne @lp
 			rts
 ;---------------------------------------------------------------------------------
-;vpod gfx_mode(void);
+;void gfx_mode(void);
 ;---------------------------------------------------------------------------------
 			.export _gfx_mode
 
@@ -1293,12 +1511,13 @@ _kill_joker:		lda _joker
 			clc
 			adc _joker_x
 			sta kj_tmp
-
-:			jsr _get_random_symb
+@lp:
+			jsr _get_random_symb
 			ldx kj_tmp
 			sta _matrix,x
 			jsr __check_matrix
-			bne :-
+			bne @lp
+					
 			ldx kj_tmp
 			lda _matrix,x
 			ldx _joker_x
@@ -1309,11 +1528,8 @@ _kill_joker:		lda _joker
 @end:			rts
 
 ;---------------------------------------------------------------------------------
-;unsigned char get_random_symb(void);
-;---------------------------------------------------------------------------------
-			.export _get_random_symb
 
-_get_random_symb:	jsr _random
+_get_random_symb:	jsr _random_asm
 			cmp _animals
 			bcs _get_random_symb
 			rts
@@ -1346,6 +1562,9 @@ _fill_matrix:		jsr _inter_irq
 			stx $d001
 
 @loop:			inc hugo
+
+;			inc $d020
+					
 			lda hugo
 			and #7
 			tay
@@ -1356,12 +1575,16 @@ _fill_matrix:		jsr _inter_irq
 			stx $d027
 
 			ldx #63
-:			jsr _get_random_symb
+@lp:			jsr _get_random_symb
 			sta _matrix,x
 			dex
-			bpl :-
+			bpl @lp
+
 			jsr __check_matrix
 			bne @loop
+
+;			inc $d021
+
 			jsr _check_moves
 			beq @loop
 
@@ -1391,21 +1614,6 @@ _fill_matrix:		jsr _inter_irq
 			jsr _game_irq
 			jmp _gfx_mode
 
-
-irq_x:			asl $d019
-
-			lda #$1b
-			sta $d018
-
-			lda #255
-			cmp $d012
-			bne *-3
-
-			lda #$1f
-			sta $d018
-
-			jsr $1003
-			jmp out3
 
 ;------------------------------------------------------------
 ;void __fastcall__ plot_score(unsigned int sc,char x,char y);
@@ -1513,6 +1721,10 @@ _save_hs:		jmp (_save_vector)
 			lda #0
 			sta $d01a
 			sta $d418
+
+			lda #$7f
+			sta $dc0d
+					
 			lda #<_highscore
 			ldx #>_highscore
 			sta $fe
@@ -1530,7 +1742,13 @@ _save_hs:		jmp (_save_vector)
 			ldx #<(_highscore + 160)
 			ldy #>(_highscore + 160)
 			jsr $ffd8
-			inc $d01a
+;			inc $d01a
+
+			lda #1
+			sta $d01a
+			lda #$81
+			sta $dc0d
+					
 			rts
 ;---------------------------------------------------------------------------------
 ;unsigned char yesno(void)
@@ -1543,13 +1761,15 @@ _yesno:			jsr $ffe4
 			cmp #'r'
 			bne _yesno
 			lda #0
+			tax
 			rts
 ys_yes:			lda #1
+			ldx #0
 			rts
 ;--------------------------------------------------------------------
 ;void move_matrix(void)
 ;--------------------------------------------------------------------
-.export _move_matrix
+			.export _move_matrix
 
 _move_matrix:
 			.proc move_matrix
@@ -1862,6 +2082,8 @@ _getkey:		jsr $ffcc
 ;---------------------------------------------------------------------------------
 ;unsigned char __fastcall__ check_moves(void);
 ;---------------------------------------------------------------------------------
+; used from asm AND C
+					
 			.export _check_moves
 
 _check_moves:
@@ -1898,8 +2120,10 @@ for_j_loop:		ldx cmj
 			sta _pm_y1
 			sta _pm_y2
 cm_exit:		lda #0			;free timer freeze
+			tax
 			sta _stop
 			lda #1			;success
+;			ldx #0
 			rts			;return
 endif1:
 			lda cmi			;now swap vertically
@@ -1931,6 +2155,7 @@ endif2:			inc cmj			;advance in x-direction
 			dec cmi
 			jpl for_i_loop
 			lda #0
+			tax
 			sta _stop
 			rts
 
@@ -1973,9 +2198,6 @@ _put2cue:		ldx _cue_max
 			inc _cue_max
 @exit:			rts
 ;--------------------------------------------------------------------------
-;unsigned char getfromcue(void);
-;--------------------------------------------------------------------------
-			.export _getfromcue
 
 _getfromcue:		lda _cue_max
 			beq @exit
@@ -1989,7 +2211,9 @@ _getfromcue:		lda _cue_max
 			inx
 			bne @lp
 @done:			tya
-@exit:			rts
+@exit:
+;			ldy #0
+			rts
 
 ;---------------------------------------------------------------------------------
 ;void __fastcall__ do_bar(char);

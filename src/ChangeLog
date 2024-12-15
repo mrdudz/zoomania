@@ -1,4 +1,23 @@
 
+Changes since Preview 3 (groepaz@gmx.net)
+
+    * trivial changes in linker config to make it work with latest cc65
+      snapshot (Compiled with CC65 V2.12.9 using Linux)
+
+    * enabled compiler optimizations in the makefile
+
+    * trivial bugfix in the "clean" target
+
+    * made assembler functions that return "unsigned char" properly set the
+      X register to zero before returning to conform with cc65 calling
+      conventions. (not doing this may result in odd behaviour/bugs)
+
+    * fixed a bug that prevented it from working on NTSC (yay!)
+
+    * changed ingame interupt to use 50hz timers, the onslaught release is
+      much harder to play on NTSC than on PAL since the time is still driven
+      by the raster irq.
+
 Changes since Preview 2 (ninja@the-dreams.de)
 
     * extract binary blobs, add Makefile; now source is in compilable state

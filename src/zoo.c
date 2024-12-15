@@ -94,6 +94,7 @@ void show_highscores(void){
 
 	screen_off();
 	init_msx(0);
+	hs_irq();
 	fill();
 	txt_mode();
 
@@ -107,11 +108,13 @@ void show_highscores(void){
 	screen_on();
 
 	while(*(char*)0xdc00 == 127){
-		wait(0x33+24*8-2);
-		setgfx(0x0428);
-		wait(0);
-		setgfx(0x0438);
+// 		wait(0x33+24*8-2);
+// 		setgfx(0x0428);
+// 		wait(0);
+// 		setgfx(0x0438);
 
+ 		wait(0x80);
+		
 		++j;
 		if ((j & 3) == 0){
 			++i;
@@ -181,7 +184,7 @@ void title_screen(void){
 			players = 1;
 		}
 		else if (choice == 3){
-			game_irq();
+//			game_irq();
 			show_highscores();
 			continue;
 		}
@@ -209,6 +212,8 @@ void all_done(void){
 }
 
 void level_up_screen(void){
+
+	
 	txt_mode();
 	sprintf(str_dummy,"level %02d",level);
 	print2x2_centered(str_dummy,6,14,6);
@@ -483,8 +488,10 @@ void main(void){
 	*(char*)0x0328 = 0xfc;	//block run/stop
 	cputc(0x8);		//block shift-cbm
 
-//	*(char*)0xd020 = 0x03;
-//	cgetc();
+	random_init();
+
+	*(char*)0xd020 = 0;
+	*(char*)0xd021 = 0;
 
 	clrscr();
 	setgfx(0x0428);
